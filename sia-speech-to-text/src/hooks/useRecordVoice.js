@@ -2,13 +2,15 @@
 import { useEffect, useState, useRef } from "react";
 import { blobToBase64 } from "@/utils/blobToBase64";
 import { createMediaStream } from "@/utils/createMediaStream";
-
+import { useChatHistoryStore } from "@/store";
 export const useRecordVoice = () => {
   const [text, setText] = useState("");
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [recording, setRecording] = useState(false);
   const isRecording = useRef(false);
   const chunks = useRef([]);
+  const addMessage = useChatHistoryStore((state) => state.addMessage);
+
 
   const startRecording = () => {
     if (mediaRecorder) {
@@ -38,11 +40,34 @@ export const useRecordVoice = () => {
         }),
       }).then((res) => res.json());
       const { text } = response;
-      setText(text);
+      addMessage({ text, type: "user" });
+      await getResponse(text);
     } catch (error) {
       console.log(error);
     }
   };
+
+  const getResponse = async (text) => {
+    const url = `${process.env.NEXT_PUBLIC_PI_IP}/api/crew`
+    console.log(url)
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text,
+        }),
+      }).then((res) => res.json());
+      console.log(response)
+      const { answer } = response;
+      addMessage({ text: answer, type: "ai" });
+    } catch (error) {
+      console.log(error);
+    }
+
+  }
 
   const initialMediaRecorder = (stream) => {
     const mediaRecorder = new MediaRecorder(stream);
